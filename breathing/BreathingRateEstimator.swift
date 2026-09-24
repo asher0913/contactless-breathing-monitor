@@ -19,8 +19,9 @@ enum BreathingRateEstimator {
     ///
     /// The series is detrended with a least-squares line (the phone or the person drifts slowly),
     /// then the normalised autocorrelation is searched over lags that correspond to
-    /// `minBPM...maxBPM`. The shortest lag whose correlation is within 90% of the best one is the
-    /// period (so a multiple of the true period is not chosen), refined by parabolic
+    /// `minBPM...maxBPM`. A periodic signal correlates almost as well at twice its period, and noise
+    /// can tip the balance, so the shortest peak within 60% of the best one is taken as the period
+    /// (with 90%, heavy noise halved one rate in three). The lag is refined by parabolic
     /// interpolation because at 2 Hz one sample is a large step in rate.
     ///
     /// Returns `nil` when there is less than `minimumDuration` seconds of data or no lag correlates
@@ -55,7 +56,7 @@ enum BreathingRateEstimator {
 
         let peaks = (minLag...maxLag).filter { corr($0) >= corr($0 - 1) && corr($0) >= corr($0 + 1) }
         guard let best = peaks.map(corr).max(), best >= minimumConfidence else { return nil }
-        guard let lag = peaks.first(where: { corr($0) >= 0.9 * best }) else { return nil }
+        guard let lag = peaks.first(where: { corr($0) >= 0.6 * best }) else { return nil }
 
         let (left, centre, right) = (corr(lag - 1), corr(lag), corr(lag + 1))
         let curvature = left - 2 * centre + right
