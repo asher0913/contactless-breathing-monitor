@@ -81,6 +81,17 @@ struct TestView: View {
                 // Display status message and control buttons
                 VStack(spacing: 16) {
                     // Show a status message based on shoulder lock state
+                    // Respiratory rate over the plotted window (up to 50 s of 0.5 s samples)
+                    if cameraViewModel.isShoulderLocked,
+                       let rate = BreathingRateEstimator.estimate(
+                           samples: curveDrawer.depthHistory.map { Double($0) }, sampleInterval: 0.5) {
+                        Text(String(format: "≈ %.0f breaths/min", rate.breathsPerMinute))
+                            .font(.title2.monospacedDigit())
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .accessibilityIdentifier("breathingRate")
+                    }
+
                     Text(cameraViewModel.isShoulderLocked ? "✅ Detecting..." : "⚠️ Ensure shoulders visible")
                         .foregroundColor(.white)  // Set text color to white
                         .font(.headline)  // Use headline font style

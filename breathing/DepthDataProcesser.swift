@@ -15,8 +15,12 @@ class DepthDataProcessor: ObservableObject {
     // MARK: - Properties
     // Current average depth value for the latest frame
     private var currentAverageDepth: CGFloat = 0.0
-    // Accumulated average depth over time
+    // Sum of the smoothed per-frame depths in the current 0.5 s window
     private var accumulatedAverageDepth: CGFloat = 0.0
+    // Number of frames in the current window. The window mean, not the sum, is recorded: the
+    // frame count varies by one or two per window, and a sum would move by ~7% with it,
+    // several times the ~1% depth change of a breath.
+    private var accumulatedFrameCount: Int = 0
     // Previous accumulated average depth for reference
     private var previousAccumulatedAverageDepth: CGFloat = 0.0
     // Timer for periodic breathing state detection
@@ -92,6 +96,7 @@ class DepthDataProcessor: ObservableObject {
             dataLock.lock()
             self.currentAverageDepth = smoothedDepth
             self.accumulatedAverageDepth += smoothedDepth
+            self.accumulatedFrameCount += 1
             dataLock.unlock()
         } else {
             print("Weighted moving average failed")
@@ -103,13 +108,16 @@ class DepthDataProcessor: ObservableObject {
         // Lock data access for thread safety
         dataLock.lock()
         
-        // Append the accumulated average depth to the history array
-        depthHistory.append(accumulatedAverageDepth)
-        print("accumulatedAverageDepth\(accumulatedAverageDepth)")
-        // Store the current accumulated depth as the previous value
-        self.previousAccumulatedAverageDepth = accumulatedAverageDepth
-        // Reset the accumulated depth for the next cycle
+        // Record the mean depth of this window; skip windows with no valid frames
+        if accumulatedFrameCount > 0 {
+            let windowMean = accumulatedAverageDepth / CGFloat(accumulatedFrameCount)
+            depthHistory.append(windowMean)
+            // Store the window mean as the previous value
+            self.previousAccumulatedAverageDepth = windowMean
+        }
+        // Reset the accumulator for the next window
         self.accumulatedAverageDepth = 0.0
+        self.accumulatedFrameCount = 0
         // Unlock data access
         dataLock.unlock()
     }
